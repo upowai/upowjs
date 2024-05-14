@@ -92,7 +92,7 @@ export default class WalletUtil {
   }
 
   amountInSmallestUnit(amount) {
-    return new BN(amount).mul(new BN(100000000));
+    return new BN(amount).mul(new BN(100_000_000));
   }
 
   getPublickey(publicKey) {
