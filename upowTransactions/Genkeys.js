@@ -1,5 +1,5 @@
-const bs58 = (await import("bs58")).default;
-const ec = (await import("elliptic")).default;
+import bs58 from "bs58";
+import ec from "elliptic";
 import { Buffer } from "buffer";
 
 const ENDIAN = "le";
