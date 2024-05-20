@@ -165,13 +165,12 @@ export default class WalletRepo extends WalletUtil {
 
   async pushTransaction(txHex) {
     try {
-      const url = `${this.endpoint}push_tx?tx_hex=${encodeURIComponent(txHex)}`;
-
-      const response = await fetch(url, {
-        method: "GET",
+      const response = await fetch(`${this.endpoint}push_tx`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ tx_hex: txHex }),
         timeout: 10000,
       });
 

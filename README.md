@@ -232,6 +232,26 @@ async function checkTx() {
 checkTx();
 ```
 
+### Get address
+
+```javascript
+import { upowjs } from "upowjs";
+
+async function getAddress() {
+  const endpoint = ENDPOINT;
+  const myWallet = new upowjs.Wallet(KEY, endpoint);
+
+  try {
+    const address = await upowjs.uPowGetAdress(myWallet);
+    console.log(address);
+  } catch (error) {
+    console.error("Error during transaction:", error.message);
+  }
+}
+
+getAddress();
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue.

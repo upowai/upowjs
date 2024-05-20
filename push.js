@@ -153,6 +153,18 @@ async function uPowTxHash(wallet, txhash) {
   }
 }
 
+async function uPowGetAdress(wallet) {
+  try {
+    const address = await wallet.getAddressFromPrivateKey();
+
+    return {
+      response: address,
+    };
+  } catch (error) {
+    throw new Error(`${error.message}`);
+  }
+}
+
 export {
   sendTransaction,
   stakeTransaction,
@@ -165,5 +177,6 @@ export {
   uPowKeys,
   uPowBalance,
   uPowTxHash,
+  uPowGetAdress,
   Wallet,
 };

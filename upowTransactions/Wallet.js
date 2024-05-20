@@ -19,6 +19,10 @@ class Wallet extends walletHelper {
     return a;
   }
 
+  getAddressFromPrivateKey() {
+    return this.getAddressFromPrivate();
+  }
+
   async getTxhash(hash) {
     let a = await this.getTransactionDetails(hash);
     return a;

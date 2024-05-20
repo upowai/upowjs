@@ -1,6 +1,6 @@
 {
   "name": "upowjs",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "description": "A upowjs JavaScript library for interacting with the blockchain, designed specifically for uPow blockchain networks. This library provides functionalities for wallet management, transaction processing, and more.",
   "main": "index.js",
   "type": "module",
