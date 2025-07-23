@@ -1,6 +1,11 @@
 import Wallet from "./upowTransactions/Wallet.js";
 import BN from "bn.js";
 import { generateKeys } from "./upowTransactions/Genkeys.js";
+import {
+  generateTransactionHex,
+  decodeTransactionHex,
+  generateTransactionHexWithoutPrivateKey,
+} from "./transaction-hex-decoder.js";
 
 async function sendTransaction(wallet, recipientAddress, amount) {
   if (!recipientAddress || !amount) {
@@ -179,4 +184,8 @@ export {
   uPowTxHash,
   uPowGetAdress,
   Wallet,
+  // Newly exposed helpers
+  generateTransactionHex,
+  decodeTransactionHex,
+  generateTransactionHexWithoutPrivateKey,
 };

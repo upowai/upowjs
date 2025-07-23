@@ -252,6 +252,58 @@ async function getAddress() {
 getAddress();
 ```
 
+### Generate & sign a raw transaction hex
+
+```javascript
+import { upowjs } from "upowjs";
+
+(async () => {
+  const endpoint = "https://api.upow.ai/";
+  const wallet = new upowjs.Wallet("<PRIVATE_KEY>", endpoint);
+
+  // Create and sign a transaction
+  const tx = await upowjs.generateTransactionHex(
+    wallet,
+    "<RECIPIENT_ADDRESS>",
+    1.23, // amount in UPOW
+    true, // include a message
+    "Hello from upowjs" // message text
+  );
+
+  console.log("Signed hex:", tx.signedTransaction);
+})();
+```
+
+### Decode any transaction hex
+
+```javascript
+import { upowjs } from "upowjs";
+
+const decoded = upowjs.decodeTransactionHex("<RAW_TX_HEX>");
+console.log(JSON.stringify(decoded, null, 2));
+```
+
+### Generate an unsigned transaction hex (no private key required)
+
+Useful for testing or estimating fees/UTXO selection.
+
+```javascript
+import { upowjs } from "upowjs";
+
+(async () => {
+  const sim = await upowjs.generateTransactionHexWithoutPrivateKey(
+    "<SENDER_ADDRESS>",
+    "<RECIPIENT_ADDRESS>",
+    0.5, // amount in UPOW
+    "https://api.upow.ai/", // node endpoint
+    false // include message?
+  );
+
+  console.log(sim.transactionHex); // raw, unsigned hex
+  console.log(sim.canPushToBlockchain); // always false
+})();
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue.

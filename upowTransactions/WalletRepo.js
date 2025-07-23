@@ -19,80 +19,110 @@ export default class WalletRepo extends WalletUtil {
 
   async getBalanceInfo(address) {
     try {
-      const params = new URLSearchParams({ address, show_pending: true });
-      const url = `${this.endpoint}get_address_info?${params.toString()}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      // const data = response.data;
-      if (!data.ok) {
-        return {
-          totalBalance: null,
-          pendingBalance: null,
-          stakeBalance: null,
-          pendingStakeBalance: null,
-          error: true,
-          errorMessage: data.error,
-        };
+      // Validate endpoint before making the request
+      if (!this.endpoint) {
+        throw new Error("Node endpoint is not defined");
       }
 
-      const result = data.result || {};
-      const pendingTransactions = result.pending_transactions || [];
-      const spendableOutputs = result.spendable_outputs || [];
+      const params = new URLSearchParams({ address, show_pending: true });
+      const url = `${this.endpoint}get_address_info?${params.toString()}`;
 
-      const spendableHashes = new Set(
-        spendableOutputs.map((output) => output.tx_hash)
-      );
+      // Add timeout to fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      let totalBalance = new BigNumber(result.balance || 0);
-      let pendingBalance = new BigNumber(0);
-      let stakeBalance = new BigNumber(result.stake || 0);
-      let pendingStakeBalance = new BigNumber(0);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const data = await response.json();
 
-      pendingTransactions.forEach((transaction) => {
-        transaction.inputs.forEach((input) => {
-          if (input.address === address && spendableHashes.has(input.tx_hash)) {
-            const inputAmount = new BigNumber(input.amount || 0);
+        // const data = response.data;
+        if (!data.ok) {
+          return {
+            totalBalance: null,
+            pendingBalance: null,
+            stakeBalance: null,
+            pendingStakeBalance: null,
+            error: true,
+            errorMessage: data.error,
+          };
+        }
+
+        const result = data.result || {};
+        const pendingTransactions = result.pending_transactions || [];
+        const spendableOutputs = result.spendable_outputs || [];
+
+        const spendableHashes = new Set(
+          spendableOutputs.map((output) => output.tx_hash)
+        );
+
+        let totalBalance = new BigNumber(result.balance || 0);
+        let pendingBalance = new BigNumber(0);
+        let stakeBalance = new BigNumber(result.stake || 0);
+        let pendingStakeBalance = new BigNumber(0);
+
+        pendingTransactions.forEach((transaction) => {
+          transaction.inputs.forEach((input) => {
             if (
-              transaction.outputs.some((output) => output.type === "UN_STAKE")
+              input.address === address &&
+              spendableHashes.has(input.tx_hash)
             ) {
-              pendingBalance = pendingBalance.plus(inputAmount);
-            } else if (transaction.transaction_type === "REGULAR") {
-              pendingBalance = pendingBalance.minus(inputAmount);
+              const inputAmount = new BigNumber(input.amount || 0);
+              if (
+                transaction.outputs.some((output) => output.type === "UN_STAKE")
+              ) {
+                pendingBalance = pendingBalance.plus(inputAmount);
+              } else if (transaction.transaction_type === "REGULAR") {
+                pendingBalance = pendingBalance.minus(inputAmount);
+              }
             }
-          }
+          });
+
+          transaction.outputs.forEach((output) => {
+            if (output.address === address) {
+              const outputAmount = new BigNumber(output.amount || 0);
+              if (output.type === "STAKE") {
+                pendingStakeBalance = pendingStakeBalance.plus(outputAmount);
+              } else if (output.type === "UN_STAKE") {
+                pendingStakeBalance = pendingStakeBalance.minus(outputAmount);
+              } else if (output.type === "REGULAR") {
+                pendingBalance = pendingBalance.plus(outputAmount);
+              }
+            }
+          });
         });
 
-        transaction.outputs.forEach((output) => {
-          if (output.address === address) {
-            const outputAmount = new BigNumber(output.amount || 0);
-            if (output.type === "STAKE") {
-              pendingStakeBalance = pendingStakeBalance.plus(outputAmount);
-            } else if (output.type === "UN_STAKE") {
-              pendingStakeBalance = pendingStakeBalance.minus(outputAmount);
-            } else if (output.type === "REGULAR") {
-              pendingBalance = pendingBalance.plus(outputAmount);
-            }
-          }
-        });
-      });
+        // Format the balances
+        const formattedTotalBalance = totalBalance.toFixed();
+        const formattedPendingBalance = pendingBalance.toFixed();
+        const formattedStakeBalance = stakeBalance.toFixed();
+        const formattedPendingStakeBalance = pendingStakeBalance.toFixed();
 
-      // Format the balances
-      const formattedTotalBalance = totalBalance.toFixed();
-      const formattedPendingBalance = pendingBalance.toFixed();
-      const formattedStakeBalance = stakeBalance.toFixed();
-      const formattedPendingStakeBalance = pendingStakeBalance.toFixed();
-
-      return {
-        totalBalance: formattedTotalBalance,
-        pendingBalance: formattedPendingBalance,
-        stakeBalance: formattedStakeBalance,
-        pendingStakeBalance: formattedPendingStakeBalance,
-        error: false,
-        errorMessage: null,
-      };
+        return {
+          totalBalance: formattedTotalBalance,
+          pendingBalance: formattedPendingBalance,
+          stakeBalance: formattedStakeBalance,
+          pendingStakeBalance: formattedPendingStakeBalance,
+          error: false,
+          errorMessage: null,
+        };
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        // Handle fetch-specific errors
+        if (fetchError.name === "AbortError") {
+          throw new Error(
+            `Connection to ${this.endpoint} timed out. Please check your internet connection or try a different node endpoint.`
+          );
+        } else if (fetchError.cause && fetchError.cause.code === "ENOTFOUND") {
+          throw new Error(
+            `Cannot connect to ${this.endpoint}. The server address could not be found. Please check the endpoint URL or try an alternative node.`
+          );
+        } else {
+          throw fetchError;
+        }
+      }
     } catch (error) {
-      `Error: ${error.message}`;
+      console.error(`Error getting balance info: ${error.message}`);
       return {
         totalBalance: null,
         pendingBalance: null,
