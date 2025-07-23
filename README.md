@@ -267,7 +267,7 @@ import { upowjs } from "upowjs";
     "<RECIPIENT_ADDRESS>",
     1.23, // amount in UPOW
     true, // include a message
-    "Hello from upowjs" // message text
+    "" // message text
   );
 
   console.log("Signed hex:", tx.signedTransaction);
