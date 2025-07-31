@@ -28,6 +28,29 @@ class Wallet extends walletHelper {
     return a;
   }
 
+  async getUTXOs(maxAmount = null, maxCount = null) {
+    const addressInfo = await this.getAddressInfo(this.address, 0);
+    let addressInputs = this.getAddressInputFromJson(addressInfo);
+
+    // If maxAmount is provided, filter UTXOs to only include those with amount <= maxAmount
+    if (maxAmount !== null) {
+      addressInputs = addressInputs.filter(
+        (input) => parseFloat(input.amount) <= maxAmount
+      );
+    }
+
+    // Sort by amount (smallest first) to prioritize consolidating smaller UTXOs
+    addressInputs.sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount));
+
+    // If maxCount is provided, limit the number of UTXOs returned
+    if (maxCount !== null && addressInputs.length > maxCount) {
+      console.log(`Limiting UTXOs from ${addressInputs.length} to ${maxCount}`);
+      addressInputs = addressInputs.slice(0, maxCount);
+    }
+
+    return addressInputs;
+  }
+
   async transaction(beneficiaries, message = undefined) {
     const addressInfo = await this.getAddressInfo(this.address, 0);
     let amount = new BN("0", 10);
@@ -45,8 +68,16 @@ class Wallet extends walletHelper {
     addressInputs.sort((a, b) => a.amount - b.amount);
     let inputs = [];
     let inputsAmount = new BN("0", 10);
+    const MAX_INPUTS = 255; // Maximum number of inputs allowed in a transaction
 
     for (const txInput of addressInputs) {
+      // Enforce maximum input limit
+      if (inputs.length >= MAX_INPUTS) {
+        throw new Error(
+          `Reached maximum input limit (${MAX_INPUTS}). Please consolidate your UTXOs using a smaller transaction first, or reduce the amount you are trying to send.`
+        );
+      }
+
       inputs.push(this.getInput(txInput.tx_hash, txInput.index));
       inputsAmount = inputsAmount.add(
         this.amountInSmallestUnit(parseFloat(txInput.amount))

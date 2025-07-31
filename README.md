@@ -304,6 +304,81 @@ import { upowjs } from "upowjs";
 })();
 ```
 
+### Analyze UTXOs
+
+Analyze the UTXO distribution in a wallet to understand fragmentation and optimize transaction efficiency.
+
+```javascript
+import { upowjs } from "upowjs";
+
+async function analyzeWalletUTXOs() {
+  const endpoint = "https://api.upow.ai/";
+  const myWallet = new upowjs.Wallet("<PRIVATE_KEY>", endpoint);
+
+  try {
+    const analysis = await upowjs.analyzeUTXOs(myWallet);
+
+    if (analysis.response.success) {
+      const { total, totalValue, ranges, distribution } = analysis.response.analysis;
+
+      console.log(`Total UTXOs: ${total}`);
+      console.log(`Total Value: ${totalValue}`);
+
+      // Check distribution by ranges (dust, small, medium, large, etc.)
+      console.log("UTXO Distribution:", ranges);
+
+      // Check most common UTXO amounts
+      console.log("Most common amounts:", Object.entries(distribution).slice(0, 5));
+    } else {
+      console.error(analysis.response.message);
+    }
+  } catch (error) {
+    console.error("Error analyzing UTXOs:", error.message);
+  }
+}
+
+analyzeWalletUTXOs();
+```
+
+### Consolidate UTXOs
+
+Consolidate many small UTXOs into a single larger one to improve transaction efficiency and reduce fees.
+
+```javascript
+import { upowjs } from "upowjs";
+
+async function consolidateSmallUTXOs() {
+  const endpoint = "https://api.upow.ai/";
+  const myWallet = new upowjs.Wallet("<PRIVATE_KEY>", endpoint);
+
+  try {
+    // Get your wallet address
+    const myAddress = await upowjs.uPowGetAdress(myWallet);
+
+    // Consolidate UTXOs less than or equal to 5 UPOW
+    // Parameters: wallet, recipient address, max UTXO amount to include, max inputs
+    const result = await upowjs.consolidateUTXOs(
+      myWallet,
+      myAddress.response, // Send back to same address
+      5, // Max UTXO amount to include
+      255 // Max inputs to include (default: 255)
+    );
+
+    if (result.response.success) {
+      console.log(`Successfully consolidated ${result.consolidatedUtxos} UTXOs`);
+      console.log(`Total amount: ${result.totalAmount}`);
+      console.log(`Transaction hash: ${result.response.txhash}`);
+    } else {
+      console.error(result.response.message);
+    }
+  } catch (error) {
+    console.error("Error consolidating UTXOs:", error.message);
+  }
+}
+
+consolidateSmallUTXOs();
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue.

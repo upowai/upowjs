@@ -170,6 +170,163 @@ async function uPowGetAdress(wallet) {
   }
 }
 
+async function consolidateUTXOs(
+  wallet,
+  recipientAddress,
+  maxAmount = 5,
+  maxInputs = 255
+) {
+  if (!recipientAddress) {
+    throw new Error("Recipient address is required for consolidation.");
+  }
+
+  try {
+    // Get small UTXOs for the wallet (less than or equal to maxAmount)
+    // Limit to maxInputs (default 255) to prevent exceeding blockchain input limits
+    const utxos = await wallet.getUTXOs(maxAmount, maxInputs);
+
+    if (!utxos || utxos.length <= 1) {
+      return {
+        response: {
+          success: false,
+          message: `Not enough small UTXOs (≤ ${maxAmount}) to consolidate`,
+        },
+      };
+    }
+
+    console.log(
+      `Found ${utxos.length} UTXOs with amount ≤ ${maxAmount} to consolidate (max inputs: ${maxInputs})`
+    );
+
+    // Calculate total amount from filtered UTXOs
+    const totalAmount = utxos.reduce(
+      (sum, utxo) => sum + Number(utxo.amount),
+      0
+    );
+    console.log(`Total amount to consolidate: ${totalAmount}`);
+
+    // Create a single transaction that sends all funds back to the same address
+    const beneficiaries = [
+      {
+        address: recipientAddress,
+        amount: totalAmount.toString(),
+        type: "0",
+      },
+    ];
+
+    const transactionResult = await wallet.transaction(
+      beneficiaries,
+      "UTXO consolidation"
+    );
+
+    return {
+      response: transactionResult.response,
+      consolidatedUtxos: utxos.length,
+      totalAmount: totalAmount,
+    };
+  } catch (error) {
+    throw new Error(`UTXO consolidation failed: ${error.message || error}`);
+  }
+}
+
+async function analyzeUTXOs(wallet) {
+  try {
+    // Get all UTXOs for the wallet
+    const addressInfo = await wallet.getAddressInfo(
+      await wallet.getAddressFromPrivateKey(),
+      0
+    );
+    const allUTXOs = wallet.getAddressInputFromJson(addressInfo);
+
+    if (!allUTXOs || allUTXOs.length === 0) {
+      return {
+        response: {
+          success: false,
+          message: "No UTXOs found for this wallet",
+        },
+      };
+    }
+
+    // Group UTXOs by amount ranges
+    const utxoAnalysis = {
+      total: allUTXOs.length,
+      totalValue: 0,
+      ranges: {},
+      distribution: {},
+    };
+
+    // Define common ranges
+    const ranges = [
+      { name: "dust", max: 1 },
+      { name: "small", max: 5 },
+      { name: "medium", max: 100 },
+      { name: "large", max: 1000 },
+      { name: "very_large", max: 10000 },
+      { name: "huge", max: 100000 },
+      { name: "massive", max: Infinity },
+    ];
+
+    // Initialize ranges
+    ranges.forEach((range) => {
+      utxoAnalysis.ranges[range.name] = {
+        count: 0,
+        totalValue: 0,
+        utxos: [],
+      };
+    });
+
+    // Analyze each UTXO
+    allUTXOs.forEach((utxo) => {
+      const amount = parseFloat(utxo.amount);
+      utxoAnalysis.totalValue += amount;
+
+      // Find which range this UTXO belongs to
+      for (const range of ranges) {
+        if (amount <= range.max) {
+          utxoAnalysis.ranges[range.name].count++;
+          utxoAnalysis.ranges[range.name].totalValue += amount;
+          utxoAnalysis.ranges[range.name].utxos.push({
+            txHash: utxo.tx_hash,
+            index: utxo.index,
+            amount: amount,
+          });
+          break;
+        }
+      }
+
+      // Also track exact amounts for detailed distribution
+      const amountKey = amount.toString();
+      if (!utxoAnalysis.distribution[amountKey]) {
+        utxoAnalysis.distribution[amountKey] = {
+          count: 0,
+          totalValue: 0,
+        };
+      }
+      utxoAnalysis.distribution[amountKey].count++;
+      utxoAnalysis.distribution[amountKey].totalValue += amount;
+    });
+
+    // Sort distribution by count (descending)
+    const sortedDistribution = Object.entries(utxoAnalysis.distribution)
+      .sort((a, b) => b[1].count - a[1].count)
+      .reduce((acc, [key, value]) => {
+        acc[key] = value;
+        return acc;
+      }, {});
+
+    utxoAnalysis.distribution = sortedDistribution;
+
+    return {
+      response: {
+        success: true,
+        analysis: utxoAnalysis,
+      },
+    };
+  } catch (error) {
+    throw new Error(`UTXO analysis failed: ${error.message || error}`);
+  }
+}
+
 export {
   sendTransaction,
   stakeTransaction,
@@ -183,6 +340,8 @@ export {
   uPowBalance,
   uPowTxHash,
   uPowGetAdress,
+  consolidateUTXOs,
+  analyzeUTXOs,
   Wallet,
   // Newly exposed helpers
   generateTransactionHex,
